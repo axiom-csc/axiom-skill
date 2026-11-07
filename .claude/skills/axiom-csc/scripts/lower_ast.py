@@ -258,7 +258,7 @@ def _ast_extract_auth_violations(text):
     entities = []
     _USER_ROOTS = {"user", "current_user", "request_user"}
 
-    # Pass 1: collect assignment aliases like `uid = user.id`
+    # Pass 1: collect direct aliases — `uid = user.id`.
     id_aliases = {"user_id", "userid"}
     for node in _ast.walk(tree):
         if isinstance(node, _ast.Assign):
@@ -269,6 +269,25 @@ def _ast_extract_auth_violations(text):
                             attr.attr == "id" and
                             attr.value.id in _USER_ROOTS):
                         id_aliases.add(target.id)
+
+    # Pass 1b: transitive aliases — `b = a` where `a` is already an alias.
+    # Fixed-point iteration so arbitrary-depth chains (`a = user.id; b = a;
+    # c = b; d = c; if d == 1: …`) are all resolved. Bounded by alias count,
+    # so termination is guaranteed on any valid AST. Each iteration stops
+    # once no new alias was added.
+    assigns = [n for n in _ast.walk(tree) if isinstance(n, _ast.Assign)]
+    while True:
+        changed = False
+        for node in assigns:
+            for target in node.targets:
+                if (isinstance(target, _ast.Name) and
+                        isinstance(node.value, _ast.Name) and
+                        node.value.id in id_aliases and
+                        target.id not in id_aliases):
+                    id_aliases.add(target.id)
+                    changed = True
+        if not changed:
+            break
 
     def _is_id_node(n):
         if isinstance(n, _ast.Attribute):

@@ -97,7 +97,7 @@ echo '{"tool_name":"Write","tool_input":{"file_path":"src/auth/middleware.py","c
 | Category | What Axiom catches | Known gaps |
 |----------|--------------------|------------|
 | **Payments / numeric bounds** | Hardcoded limits that don't match your policy; literal math expressions like `MAX_TRANSACTION = 10000 * 8` are folded (→ 80000) | Limits stored in variables (`max = 10000; amount > max`) |
-| **Auth: hardcoded ID** | `user.id == 1` checks in auth paths (AST-based) | Aliased variables more than one hop deep |
+| **Auth: hardcoded ID** | `user.id == 1` checks in auth paths (AST-based); arbitrary-depth variable aliases via fixed-point taint propagation (`a = user.id; b = a; c = b; if c == 1` fires) | — |
 | **Auth: unconditional return** | `if True: return True` in auth paths | Complex conditional chains |
 | **Auth: role literals** | `"admin"`, `"root"` in non-config auth files (plus `"administrador"`, `"администратор"`, `"管理员"`, etc.; extend via `AXIOM_AUTH_ROLE_LITERALS` env) | Config files exempt by design |
 | **Auth: commented checks** | `# check permission` and localised equivalents (`# проверка прав`, `# verificar permiso`, `# 权限 验证`, etc.; extend via `AXIOM_AUTH_COMMENT_TERMS` env) | — |

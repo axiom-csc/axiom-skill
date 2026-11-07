@@ -572,3 +572,48 @@ reproduce" after only same-env runs is weaker evidence than I
 treated it as. Should have tried pytest explicitly after the
 report-writer handoff mentioned it; I had the `pytest: command
 not found` signal in an earlier step and dropped it.
+
+### 2026-11-07 — further team-lead update: 110/110 confirmed at a0eeef0
+
+After the above fix landed as `49fe2d3`, team-lead relayed that
+report-writer re-ran at HEAD `a0eeef0` (pre-fix) and got 110/110
+clean in their environment. engine-repo's earlier 95/1/1 was
+against intermediate state, as hypothesised.
+
+Note on 49fe2d3: the specific test failure didn't reproduce for
+report-writer's final env (presumably no PyYAML on their path),
+but the underlying KeyError crash I reproduced directly against
+`/Applications/Xcode.app/.../python3` + PyYAML + a `field:`-keyed
+rule is real and env-conditional. Any user with PyYAML installed
+and a typo'd rule key would hit the same crash. 49fe2d3 is a
+defensive fix across both yaml backends, not a response to a
+flake — keeping it.
+
+### 2026-11-07 — backlog item 30: deep-aliased user.id
+
+Closes the final README Known-gaps row for the auth-hardcoded-id
+detector: "Aliased variables more than one hop deep".
+
+- `_ast_extract_auth_violations` gains Pass 1b: a fixed-point
+  iteration over `_ast.Assign` nodes whose target is a single
+  `Name` and whose value is a single `Name` already in
+  `id_aliases`. Each pass that adds at least one alias triggers
+  another; terminates as soon as a pass makes no additions.
+- Bounded by alias-count so a pathological `a = b; b = a` cycle
+  can't infinite-loop (verified by a cycle test). A cycle whose
+  members derive from `user.id` resolves correctly at fixed point.
+- 10 new tests in `tests/test_auth_deep_alias.py`:
+  - 1-hop regression (pre-existing behaviour).
+  - 2-hop, 3-hop, and 10-hop chains all fire.
+  - Chain rooted in `current_user.id` fires (not just `user.id`).
+  - Chain rooted in unrelated variable doesn't fire (taint only
+    propagates from actual user roots).
+  - `b = a` where `a` is an untainted constant doesn't fire.
+  - Cycle with no tainted entry doesn't infinite-loop and doesn't
+    fire.
+  - Cycle with tainted entry fires on all cycle members.
+  - Pre-seeded aliases (`user_id`, `userid`) still work directly.
+- Suite: **120/120** under both Python 3.14 (unittest) and
+  Python 3.9 (pytest).
+- README Known-gaps table: auth-hardcoded-id row updated to list
+  the new capability; gap column reduced to —.
