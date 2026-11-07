@@ -225,7 +225,7 @@ fi
 RULES_COUNT=0
 INIT_NOTE=""
 if [[ "$GLOBAL_MODE" == "false" ]]; then
-  INIT_OUT=$(python3 "$SKILL_DIR/scripts/axiom_init.py" . 2>&1) && {
+  if python3 "$SKILL_DIR/scripts/axiom_init.py" . >/dev/null 2>&1; then
     # Count rules generated
     RULES_COUNT=$(python3 -c "
 import pathlib, sys
@@ -236,15 +236,15 @@ try:
 except Exception:
     print(0)
 " 2>/dev/null || echo 0)
-  } || {
+  else
     INIT_NOTE="ℹ  Run \`python3 $SKILL_DIR/scripts/axiom_init.py .\` to generate rules from your codebase."
-  }
+  fi
 fi
 
 # ── Summary ────────────────────────────────────────────────────────────────
 echo ""
 SETTINGS_SHORT="$SETTINGS_FILE"
-[[ "$SETTINGS_FILE" == "$HOME"* ]] && SETTINGS_SHORT="~${SETTINGS_FILE#$HOME}"
+[[ "$SETTINGS_FILE" == "$HOME"* ]] && SETTINGS_SHORT="~${SETTINGS_FILE#"$HOME"}"
 echo -e "${GREEN}  ✓ Hook registered in ${SETTINGS_SHORT}${NC}"
 if [[ "$GLOBAL_MODE" == "false" && -z "$INIT_NOTE" ]]; then
   echo -e "${GREEN}  ✓ .axiom/invariants.yaml generated (${RULES_COUNT} rules)${NC}"

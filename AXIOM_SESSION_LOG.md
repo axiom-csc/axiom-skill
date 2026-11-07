@@ -416,3 +416,38 @@ Closes the README Known-gaps row "Caps expressed in bytes not MB".
 - 7 new tests in `tests/test_file_size_units.py`; full suite
   97/97 (+1 shellcheck skip).
 - README Known-gaps table updated.
+
+### 2026-11-07 — fix: install.sh shellcheck findings
+
+engine-repo's capstone verification run (`reproduce_all.sh`)
+surfaced a real test failure that my local runs had missed: on a
+machine with shellcheck installed, `test_shellcheck_passes`
+exercised install.sh and found three legitimate issues my
+previous commits (`0c93bf0`, `e876411`) hadn't caught.
+
+Root cause: shellcheck was not installed on this machine, so
+`test_shellcheck_passes` was being `@unittest.skipUnless`'d
+instead of running. When engine-repo ran it with shellcheck
+available, these real findings in install.sh surfaced:
+
+- **SC2034** line 228: `INIT_OUT=$(...)` captured but never used.
+- **SC2015** line 228: `A && B || C` isn't if-then-else — if B
+  itself fails, C runs unexpectedly.
+- **SC2295** line 247: `${SETTINGS_FILE#$HOME}` without quotes on
+  `$HOME` lets glob chars in $HOME match as a pattern.
+
+Fixes (new commit, no amend):
+
+- Rewrite the `axiom_init.py` invocation as a proper
+  `if ...; then ...; else ...; fi` block. Drops `INIT_OUT`
+  (previously discarded anyway) and removes the SC2015 hazard.
+- Quote `"$HOME"` inside `${SETTINGS_FILE#"$HOME"}`.
+
+Policy choice: fix the real issues rather than widen the
+exclude list. The shellcheck test's existing narrow exclude of
+SC2155/SC2129 (style) stays as-is; everything else must be clean.
+
+Installed shellcheck locally to confirm the fix (brew install
+shellcheck → 0.11.0). After the fix: `shellcheck -x install.sh`
+exits 0 with no findings; full suite 97/97, zero skips, zero
+failures.
