@@ -521,3 +521,54 @@ non-English comments).
 - Full suite: **110/110** (shellcheck installed, no skips).
 - README Known-gaps table: both rows updated — "non-English role
   names" and "Non-English comments" removed from the gaps column.
+
+### 2026-11-07 — real cross-version bug: eval_lemma KeyError on malformed rules
+
+Correction to prior "cannot reproduce" claim. team-lead challenged
+the triage and I re-ran against the exact pytest report-writer
+uses. Reproduced immediately. **My prior code-path analysis was
+wrong — I'd missed the PyYAML branch in `load_rules`.**
+
+Root cause:
+
+- `eval_lemma.load_rules` tries JSON first, then PyYAML if the
+  module is importable, then the built-in parser.
+- On this machine, `python3` is 3.14 with no PyYAML, so the
+  built-in parser `_parse_yaml_rules` runs. That parser drops
+  any rule whose `current` dict lacks a `concept` key (the two
+  guard checks on `current.get('concept')`). A `field:`-keyed
+  rule is silently removed; downstream code never sees it. Test
+  passes.
+- On `/Applications/Xcode.app/Contents/Developer/usr/bin/python3`
+  (Python 3.9, the one `pytest` on PATH is shebanged to), PyYAML
+  IS installed. `yaml.safe_load` happily parses the `field:` rule
+  into `{"field": "transaction_value", "op": "lte", ...}` and
+  returns it. Then `_merge_default_numeric` does
+  `r["concept"] for r in user_rules["rules"]` on it → `KeyError`.
+  Subprocess exits 1, stdout=''. Test fails.
+
+This is a real cross-version bug that bites anyone who has PyYAML
+installed and writes a yaml rule with an unexpected key (any
+typo, not just the documented `field:` confusion).
+
+Fix (new commit, no amend):
+
+- `_merge_default_numeric`: iterate with `if "concept" in r`
+  guard so a malformed rule doesn't KeyError the set comprehension.
+- `solve()`: `if "concept" not in rule: continue` at the top of
+  the rule loop. Any rule without a `concept` key is silently
+  dropped — same behaviour as the built-in parser's drop-on-no-
+  concept path, now consistent across both yaml backends.
+
+Verification (reporting both):
+
+- Python 3.14 (homebrew) via unittest discover: **110/110 passing.**
+- Python 3.9 (Xcode) via pytest: **110/110 passing.**
+
+Prior claim retraction: my 5× repeat runs under one Python
+interpreter did not catch a bug that only manifested under the
+other. The lesson is pedestrian but worth recording — "cannot
+reproduce" after only same-env runs is weaker evidence than I
+treated it as. Should have tried pytest explicitly after the
+report-writer handoff mentioned it; I had the `pytest: command
+not found` signal in an earlier step and dropped it.

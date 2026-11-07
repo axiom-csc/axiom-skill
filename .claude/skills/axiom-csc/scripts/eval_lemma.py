@@ -58,8 +58,13 @@ def _merge_default_numeric(user_rules):
 
     Banned security rules are intentionally excluded — they are opt-in via the
     generated invariants.yaml so that MINIMAL_RULES test fixtures stay predictable.
+
+    Rules without a ``concept`` key (e.g. a user wrote ``field:`` by mistake)
+    are skipped from the coverage set; they'll be dropped again downstream by
+    :func:`solve`. Tolerating missing keys here keeps load_rules from
+    crashing when PyYAML is installed and parses such a malformed rule.
     """
-    covered = {r["concept"] for r in user_rules.get("rules", [])}
+    covered = {r["concept"] for r in user_rules.get("rules", []) if "concept" in r}
     extras = [r for r in DEFAULT_RULES["rules"] if "op" in r and r["concept"] not in covered]
     if not extras:
         return user_rules
@@ -104,6 +109,11 @@ def solve(ast_path, rules_path):
     for n in ast.get("nodes", []): nodes_by.setdefault(n["concept"], []).append(n)
     blocks, asks = [], []
     for rule in rules:
+        # Silently skip malformed rules without a `concept` key. PyYAML will
+        # happily parse a rule written with `field:` or any other key; we
+        # treat those as "not a rule" rather than crashing on KeyError.
+        if "concept" not in rule:
+            continue
         concept = rule["concept"]
         nodes = nodes_by.get(concept, [])
         if rule.get("required") and not nodes:
