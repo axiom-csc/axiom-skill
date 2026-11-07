@@ -2,6 +2,13 @@
 import ast as _ast
 import json, re, argparse, pathlib, sys
 
+# Shared secret pattern source — see _secret_patterns.py. Keeps the hook
+# detector and the CLI redactor from drifting.
+_THIS_DIR = pathlib.Path(__file__).parent
+if str(_THIS_DIR) not in sys.path:
+    sys.path.insert(0, str(_THIS_DIR))
+from _secret_patterns import CREDENTIAL_PATTERNS
+
 PATTERNS = [
     ("transaction_value", r'\$([0-9,]+(?:\.[0-9]{2})?)', "currency_usd", float),
     ("transaction_value", r'(?:max_?transaction|transaction_?(?:limit|cap|value|amount)|max_?(?:payment|charge|amount))\s*[=:]\s*(\d[\d,]*(?:\.\d+)?)', "assignment", float),
@@ -26,15 +33,7 @@ KNOWN_PACKAGES = {
     "pandas", "pytest", "fastapi", "uvicorn", "pillow", "typescript", "vue", "jest",
 }
 
-SECRET_PATTERNS = [
-    r'AKIA[0-9A-Z]{16}',
-    r'(?:aws_secret_access_key|AWS_SECRET)[^\n]*?["\']([A-Za-z0-9/+=]{40})["\']',
-    r'sk_live_[a-zA-Z0-9]+',
-    r'sk_test_[a-zA-Z0-9]+',
-    r'sk-[A-Za-z0-9]{48}',
-    r'-----BEGIN\s+(?:RSA\s+)?PRIVATE\s+KEY-----',
-    r'(?:password|passwd|secret|api_key)\s*=\s*["\'][^"\'${\s]{4,}["\']',
-]
+SECRET_PATTERNS = CREDENTIAL_PATTERNS
 
 
 _NUMERIC_CONCEPT_KEYWORDS = {

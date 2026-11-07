@@ -11,6 +11,11 @@ import uuid
 import webbrowser
 from urllib.parse import urlencode
 
+# Shared pattern source — see _secret_patterns.py. Importing from a sibling
+# file requires sys.path to include this directory when invoked via `python3
+# .claude/.../axiom.py` (it does — Python prepends the script's dir).
+from _secret_patterns import REDACTOR_PATTERNS
+
 CONFIG_DIR = pathlib.Path.home() / ".config" / "axiom-csc"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 QUEUE_FILE = CONFIG_DIR / "queue.jsonl"
@@ -32,15 +37,10 @@ def save_config(cfg):
 
 
 # ── Secret redaction ───────────────────────────────────────────────────────
+# Pattern list lives in _secret_patterns.py so the hook-side detector and
+# this redactor can't drift. See that module's docstring.
 
-SECRET_PATTERNS = [
-    r'AKIA[0-9A-Z]{16}',                                              # AWS access key
-    r'sk-[a-zA-Z0-9]{48}',                                            # OpenAI key
-    r'sk_live_[a-zA-Z0-9]{24,}',                                      # Stripe live key
-    r'(?i)(api[_-]?key|token|secret)["\s:=]+[\'"]?([a-zA-Z0-9+/]{20,})[\'"]?',  # generic
-    r'-----BEGIN .{1,30}PRIVATE KEY-----[\s\S]*?-----END .{1,30}PRIVATE KEY-----',
-    r'[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}',            # email
-]
+SECRET_PATTERNS = REDACTOR_PATTERNS
 
 
 def redact_secrets(text):

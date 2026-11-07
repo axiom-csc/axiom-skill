@@ -269,3 +269,35 @@ Closes the top-named gap in README's "What it catches" table:
 - README's Known-gaps table updated: the math-expression row moved
   from "Known gaps" to "What Axiom catches"; dangerous-bash row
   updated for the encoded-payload coverage from the previous commit.
+
+### 2026-11-07 — backlog item 24: secret-pattern sync
+
+Closes the drift flagged in `docs/privacy-audit.md § 4`: the redactor
+in `axiom.py` was a strict *subset* of the detector in `lower_ast.py`
+(redactor missed `sk_test_`, `aws_secret_access_key=` assignments,
+and the PEM-header-only shape).
+
+- New shared module `_secret_patterns.py` exposing
+  `CREDENTIAL_PATTERNS` (both sites) and `REDACTOR_PATTERNS =
+  CREDENTIAL_PATTERNS + PII_PATTERNS` (redactor adds email).
+- `axiom.py.SECRET_PATTERNS = REDACTOR_PATTERNS` (import from
+  sibling module; Python auto-prepends the script dir to sys.path).
+- `lower_ast.py.SECRET_PATTERNS = CREDENTIAL_PATTERNS` (same import
+  with an explicit sys.path push since the hook invokes
+  `lower_ast.py` directly).
+- Policy enforced in docstring: redactor is a strict superset of
+  detector; detector carries credentials only, redactor adds PII.
+- `tests/test_pattern_sync.py` with 6 tests:
+  - Detector list is identical to the shared source.
+  - Redactor is a strict superset of the detector.
+  - Redactor scrubs Stripe test key (the exact flagged drift).
+  - Redactor scrubs AWS secret assignment.
+  - Redactor still scrubs email (PII preserved through refactor).
+  - Detector does NOT treat emails as secrets (developer writing
+    an email in code must not be blocked).
+- `docs/privacy-audit.md § 4` updated: the gap is marked _Closed_
+  with a pointer to the regression tests.
+
+Full suite: 82/82.
+
+Next claim will go on item 22 or 23.

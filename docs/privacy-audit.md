@@ -49,7 +49,12 @@ claim in `PRIVACY.md`, traced to code. Each claim is marked:
 ## 4. Not covered by the doc but worth noting
 
 - **Flush retry semantics.** `axiom_flush.py` clears only events that round-tripped successfully — on a failed send, nothing is dropped, so the next flush retries the same events. Combined with the 1000-cap, this means a long offline window silently drops the oldest beyond 1000; no doc claim is wrong, but users may want this surfaced in a FAQ.
-- **Secret-pattern coverage vs the hook.** `axiom.py:SECRET_PATTERNS` (redactor) covers Stripe `sk_live_` only; `lower_ast.py:SECRET_PATTERNS` (hook detector) covers both `sk_live_` and `sk_test_`. If a user tries to submit a case that included a test key and wasn't blocked, the redactor won't strip it. Low risk because the hook would have already blocked the write if the test key appeared in tool_input, but worth tracking.
+- **Secret-pattern coverage vs the hook.** _Closed._ Both sites now
+  read from `_secret_patterns.py` (backlog item 24): the redactor is a
+  strict superset of the detector. `tests/test_pattern_sync.py` pins the
+  invariant. Prior gap — redactor missed Stripe `sk_test_` and
+  `aws_secret_access_key=` assignments that the detector caught — would
+  be caught by the two regression tests there.
 - **`$EDITOR` round-trip.** If the user edits the payload and introduces invalid JSON, `cmd_report` exits with "Could not read edited file" and does not fall back. Acceptable, just noting.
 - **Repo name reference.** PRIVACY.md says reports become issues "in the axiom-csc repository". The actual URL target is `github.com/axiom-csc/axiom-claude-skill/issues/new`. The org is `axiom-csc`; the repo is `axiom-claude-skill`. Mildly ambiguous; PRIVACY.md should name the repo, not the org.
 
