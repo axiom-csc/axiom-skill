@@ -345,3 +345,51 @@ discrepancy here only.
 Queue ordering per team-lead: chain after items 30–33 (lower_ast
 split-offs) — not jumping to the rebrand mid-item-23. Will start
 items 30–33 or the rebrand in the next pane-tick.
+
+### 2026-11-07 — backlog item 60: blocked-event demo walkthrough
+
+Real captured transcript at
+`docs/demos/blocked-event-walkthrough.txt`. 10 cases, every one
+produced by a real `pre_tool_use.py --stdin` invocation in this
+session — no fabrication. Includes cases that exercise the new
+capabilities landed in this session:
+
+- Payment ceiling violation (bare literal, exit 1).
+- Math-folded limit `MAX = 10000 * 8` (exit 1; commit 4a8977f).
+- Hardcoded `user.id == 1` in an auth path, AST-detected (exit 1).
+- Stripe live key in file write (exit 1).
+- Stripe test key in file write (exit 1; commit b4d6fb6 sync).
+- `rm -rf` outside `/tmp` (exit 1).
+- `psql ... DROP TABLE` (exit 1).
+- `echo <blob> | base64 -d | bash` (exit 1; commit 1c563e2).
+- `python -c "import base64, os; os.system(base64.b64decode(...))"`
+  (exit 1; commit 1c563e2).
+- CSS-only edit control case (exit 0 with ✓ stderr).
+
+Generation is reproducible: the harness lives in the commit message
+and uses `subprocess.run` with `env=CLAUDE_PROJECT_DIR=<tmp>` so no
+real user state is touched.
+
+### 2026-11-07 — item 61 (Sandbox rebrand) NOT started; concerns
+
+Flagged to team-lead in the response rather than executed:
+
+1. **Scope drift.** Original `[skill-polish]` teammate charter was
+   "no fabricated feature claims; keep changes focused on polish;
+   don't refactor the skill's logic or scope-creep." A full CLI
+   rebrand of a shipped v1.1.0+ public skill — CLI name, banner,
+   README, install.sh echoes, telemetry source field — is product
+   positioning, not polish.
+2. **Chain-of-command discrepancy.** Team-lead's dispatch note
+   stated operator had described the rebrand as "already dispatched"
+   but team-lead explicitly said they had NOT previously dispatched
+   it. This specific contradiction is worth surfacing before a
+   user-visible rename lands.
+3. **Push gate still blocked.** 17 commits sit unpushed. Shipping a
+   rebrand *before* anything shipped this session reaches origin
+   increases blast radius (e.g. a user pulling halfway through the
+   stack would see a renamed CLI with half the supporting code).
+
+Not executed. If team-lead confirms scope, happy to do it as a
+discrete milestone with CHANGELOG + back-compat alias as team-lead
+specified. Awaiting that explicit confirmation.

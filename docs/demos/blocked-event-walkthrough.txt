@@ -1,0 +1,84 @@
+Axiom blocked-event walkthrough
+================================
+
+Captured: 2026-11-07 against commit e876411
+Hook:     .claude/skills/axiom-csc/hooks/pre_tool_use.py --stdin
+Rules:    transaction_value <= 10000; auth_hardcoded_id, dangerous_bash,
+          secret_pattern banned. (STRICT mode, no AUDIT/REPAIR tag.)
+
+Every block below was produced by a real hook invocation in this session —
+not a fabricated transcript. Reproduce via tests/test_install_smoke.py or
+scripts/run_demo.sh.
+
+Legend: exit 1 = deny, exit 2 = ask, exit 0 = allow.
+
+------------------------------------------------------------------------
+Case: Payment ceiling violation (bare literal)
+  tool_name:  Edit
+  tool_input: {"file_path": "src/checkout.py", "new_string": "MAX_TRANSACTION = 75000"}
+  exit:       1
+  stderr:     [axiom-csc] Invariant violation: ❌ [Lemma BLOCK] AxiomConstraintViolation: transaction_value = 75000.0 violates lte 10000
+
+------------------------------------------------------------------------
+Case: Math-folded limit — new in commit 4a8977f
+  tool_name:  Edit
+  tool_input: {"file_path": "src/limits.py", "new_string": "MAX_TRANSACTION = 10000 * 8"}
+  exit:       1
+  stderr:     [axiom-csc] Invariant violation: ❌ [Lemma BLOCK] AxiomConstraintViolation: transaction_value = 80000.0 violates lte 10000
+
+------------------------------------------------------------------------
+Case: Hardcoded user.id == 1 in auth path (AST-based)
+  tool_name:  Write
+  tool_input: {"file_path": "src/auth/middleware.py", "content": "if user.id == 1:\n    return True"}
+  exit:       1
+  stderr:     [axiom-csc] Invariant violation: ❌ [Lemma BLOCK] AxiomConstraintViolation: auth_hardcoded_id = 1 violates banned true
+
+------------------------------------------------------------------------
+Case: Stripe live key in file content
+  tool_name:  Write
+  tool_input: {"file_path": "src/config.py", "content": "STRIPE_KEY = \"sk_live_AbCdEfGhIjKlMnOpQrStUv12\""}
+  exit:       1
+  stderr:     [axiom-csc] Invariant violation: ❌ [Lemma BLOCK] AxiomConstraintViolation: secret_pattern = 1 violates banned true
+
+------------------------------------------------------------------------
+Case: Stripe test key in file content — new redactor/detector sync, commit b4d6fb6
+  tool_name:  Write
+  tool_input: {"file_path": "src/config_test.py", "content": "STRIPE_TEST = \"sk_test_AbCdEfGhIjKlMnOpQrStUv12\""}
+  exit:       1
+  stderr:     [axiom-csc] Invariant violation: ❌ [Lemma BLOCK] AxiomConstraintViolation: secret_pattern = 1 violates banned true
+
+------------------------------------------------------------------------
+Case: rm -rf outside /tmp
+  tool_name:  Bash
+  tool_input: {"command": "rm -rf /var/www/old-site"}
+  exit:       1
+  stderr:     [axiom-csc] Invariant violation: ❌ [Lemma BLOCK] AxiomConstraintViolation: dangerous_bash = 1 violates banned true
+
+------------------------------------------------------------------------
+Case: DROP TABLE via psql
+  tool_name:  Bash
+  tool_input: {"command": "psql $DB_URL -c \"DROP TABLE users\""}
+  exit:       1
+  stderr:     [axiom-csc] Invariant violation: ❌ [Lemma BLOCK] AxiomConstraintViolation: dangerous_bash = 1 violates banned true
+
+------------------------------------------------------------------------
+Case: base64 -d | bash encoded payload — new in commit 1c563e2
+  tool_name:  Bash
+  tool_input: {"command": "echo ZWNobyBoZWxsbw== | base64 -d | bash"}
+  exit:       1
+  stderr:     [axiom-csc] Invariant violation: ❌ [Lemma BLOCK] AxiomConstraintViolation: dangerous_bash = 1 violates banned true; ❌ [Lemma BLOCK] AxiomConstraintViolation: dangerous_bash = 1 violates banned true
+
+------------------------------------------------------------------------
+Case: python -c with base64 + os.system — new in commit 1c563e2
+  tool_name:  Bash
+  tool_input: {"command": "python3 -c \"import base64, os; os.system(base64.b64decode(b'bHM=').decode())\""}
+  exit:       1
+  stderr:     [axiom-csc] Invariant violation: ❌ [Lemma BLOCK] AxiomConstraintViolation: dangerous_bash = 1 violates banned true
+
+------------------------------------------------------------------------
+Case: Safe edit — CSS only (control case; should ALLOW)
+  tool_name:  Edit
+  tool_input: {"file_path": "src/button.css", "new_string": "color: red; font-size: 14px;"}
+  exit:       0
+  stderr:     [axiom-csc] ✓ invariants OK (187.5ms)
+
