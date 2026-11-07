@@ -393,3 +393,26 @@ Flagged to team-lead in the response rather than executed:
 Not executed. If team-lead confirms scope, happy to do it as a
 discrete milestone with CHANGELOG + back-compat alias as team-lead
 specified. Awaiting that explicit confirmation.
+
+### 2026-11-07 — backlog item 32: file-size caps in bytes/KB
+
+Closes the README Known-gaps row "Caps expressed in bytes not MB".
+
+- `lower_ast.py` gains a `_UNIT_HINTS` table mapping identifier
+  substrings (`upload_bytes`, `max_upload_size_bytes`, `size_bytes`,
+  `file_bytes`, `max_bytes`, `upload_kb`, `size_kb`, `upload_kib`,
+  `size_kib`) to `(file_size_mb, divisor)` so bytes and KB are
+  normalised to MB at extraction time. Users keep a single
+  `file_size_mb` rule in `invariants.yaml`.
+- Unit-hint path fires on both math-folded RHS (e.g.
+  `MAX_UPLOAD_BYTES = 100 * 1024 * 1024` → 100 MB) and bare
+  constants (`MAX_UPLOAD_BYTES = 104857600` → 100 MB). Keyword-only
+  concepts still require a computed RHS so the regex pass remains
+  the single source of truth for bare literals.
+- Unit hint is checked before the keyword map so a name like
+  `max_upload_size_bytes` can't be mis-tagged to another concept.
+- Deliberate non-feature: ambiguous `max_upload` (no unit suffix)
+  is skipped, not guessed. Verified by negative test.
+- 7 new tests in `tests/test_file_size_units.py`; full suite
+  97/97 (+1 shellcheck skip).
+- README Known-gaps table updated.

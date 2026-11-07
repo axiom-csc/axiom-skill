@@ -47,6 +47,23 @@ _NUMERIC_CONCEPT_KEYWORDS = {
     "timeout_seconds": ("timeout_seconds", "timeout_s"),
 }
 
+# Unit-aware routing: identifiers that strongly imply bytes or KB get routed
+# to `file_size_mb` with the value normalised to MB. Checked before the
+# generic keyword map so `upload_bytes` isn't mis-tagged.
+#
+# (substring_hint, concept, divisor_to_normalise)
+_UNIT_HINTS = [
+    ("upload_bytes", "file_size_mb", 1024 * 1024),
+    ("max_upload_size_bytes", "file_size_mb", 1024 * 1024),
+    ("size_bytes", "file_size_mb", 1024 * 1024),
+    ("file_bytes", "file_size_mb", 1024 * 1024),
+    ("max_bytes", "file_size_mb", 1024 * 1024),
+    ("upload_kb", "file_size_mb", 1024),
+    ("size_kb", "file_size_mb", 1024),
+    ("upload_kib", "file_size_mb", 1024),
+    ("size_kib", "file_size_mb", 1024),
+]
+
 
 def _safe_eval_const_arith(node):
     """Reduce an ast expression to a number if it's a literal arithmetic over
@@ -99,18 +116,37 @@ def _extract_numeric_math_via_ast(text):
             targets, value = [node.target], node.value
         else:
             continue
-        # Only flag computed RHS (BinOp or UnaryOp) — bare constants are
-        # already caught by the regex `assignment` pattern.
-        if not isinstance(value, (_ast.BinOp, _ast.UnaryOp)):
-            continue
         folded = _safe_eval_const_arith(value)
         if folded is None:
             continue
+        # Unit-hinted identifiers emit for bare constants too (a byte cap
+        # is just as risky written as `104857600` as `100 * 1024 * 1024`).
+        # Keyword-only matches require a computed RHS — bare constants
+        # under those concepts are already caught by the regex pass.
+        is_computed_rhs = isinstance(value, (_ast.BinOp, _ast.UnaryOp))
         for tgt in targets:
             name = getattr(tgt, "id", None)
             if not name:
                 continue
             lname = name.lower()
+            # Unit hint wins over the generic keyword map — a name like
+            # `max_upload_size_bytes` should route to file_size_mb with a
+            # bytes→MB conversion, not be left out.
+            hinted = False
+            for hint, concept, divisor in _UNIT_HINTS:
+                if hint in lname:
+                    converted = float(folded) / divisor
+                    entities.append({
+                        "id": f"ent_math_{concept}_{len(entities)}",
+                        "concept": concept,
+                        "value": converted,
+                        "type": "assignment_math",
+                        "source": f"{name} = <expr> → {folded} / {divisor} = {converted} MB",
+                    })
+                    hinted = True
+                    break
+            if hinted or not is_computed_rhs:
+                continue
             for concept, keys in _NUMERIC_CONCEPT_KEYWORDS.items():
                 if any(k in lname for k in keys):
                     entities.append({

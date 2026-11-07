@@ -105,7 +105,7 @@ echo '{"tool_name":"Write","tool_input":{"file_path":"src/auth/middleware.py","c
 | **Secrets** | AWS keys, Stripe live/test keys, OpenAI keys, PEM blocks, hardcoded passwords | Secrets stored in variables before assignment; base64-encoded secrets |
 | **Dependency confusion** | Misspellings of requests, numpy, flask, django, express, react, lodash, axios | Packages not in the hardcoded known list |
 | **Rate limits** | Invented req/min values | Values in separate config files |
-| **File uploads** | Assumed size caps | Caps expressed in bytes not MB |
+| **File uploads** | Assumed size caps, including byte-expressed caps (`MAX_UPLOAD_BYTES = 100 * 1024 * 1024` → routes to `file_size_mb = 100`) when the identifier carries a `_bytes`, `_kb`, or `_kib` suffix | Ambiguous identifiers (`MAX_UPLOAD = 10000000` without a unit suffix) are not guessed |
 | **Database** | Arbitrary LIMIT clauses | LIMIT in comments or strings |
 | **API quotas** | Made-up daily call limits | Quotas in env vars |
 
