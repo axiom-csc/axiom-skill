@@ -208,3 +208,33 @@ while the hook-side pattern in `lower_ast.py` covers both live and
 test. Flagged in the audit § 4 as low-risk because the hook blocks
 any such write upstream. Would be tightened by syncing the two
 pattern lists; left for a future pass.
+
+### 2026-11-07 — backlog item 21: lower_ast.py gaps (encoded bash payloads)
+
+Backlog claim formalized ([skill-polish] already present on item 21 in
+`~/code/axiom-work/axiom-core/AXIOM_BACKLOG.md`). First of several
+gap-closers targeting the README Known-gaps table.
+
+- `lower_ast.py:extract_dangerous_bash` gains three encoded-payload
+  patterns:
+  - Decoder-pipe-to-shell: `base64 -d|--decode|-D`, `openssl base64 -d`,
+    `openssl enc -d -base64`, `xxd -r`, `xxd -ps -r` piping into
+    `bash`/`sh`/`zsh`.
+  - `echo <blob> | <decoder> | <shell>`.
+  - `python -c "..."` one-liner that references BOTH a
+    `base64`/`codecs` decode call AND an `os.system` / `subprocess.*` /
+    `exec(` call, in either order (regex lookahead handles the common
+    `os.system(base64.b64decode(...))` nesting).
+- New test file `tests/test_dangerous_bash_encoded.py` with 12 tests:
+  7 positive cases (the various decoder + shell combos), 2 negative
+  (decode without pipe-to-shell is not flagged), 1 python-c positive
+  under subprocess.run, 1 negative (non-Bash tool_name skips).
+- Full suite: 64/64 via `python3 -m unittest discover tests`.
+
+Deliberately NOT in this commit (separate gap-closer commits to
+follow if time permits):
+- Math expressions in numeric assignments (`MAX = 10000 * 8`).
+- `file_size_bytes` pattern for caps in bytes/KB.
+- Multi-line heredoc-wrapped dangerous commands (already partially
+  covered since inline regexes match inside heredoc bodies; edge
+  cases like variable-expanded heredocs would need more work).

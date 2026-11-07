@@ -179,6 +179,19 @@ def extract_dangerous_bash(text, tool_name):
         r'wget\s+[^\|\n]+\|\s*(?:bash|sh)\b',
         r'(?:>|>>|tee\s+)\.claude/settings\.json',
         r'(?:>|>>|tee\s+)\.axiom/',
+        # Encoded-payload execution: a decoder (base64/xxd/openssl) piping
+        # into a shell. Covers the obvious `base64 -d | bash`, `xxd -r | sh`
+        # and the openssl variant. Closes the README "encoded payloads piped
+        # to bash" known-gap row.
+        r'(?:base64\s+(?:-d|--decode|-D)|openssl\s+(?:base64\s+-d|enc\s+-d\s+-base64)|xxd\s+-r|xxd\s+-ps\s+-r)[^\|\n]*\|\s*(?:bash|sh|zsh)\b',
+        # `echo "<blob>" | base64 -d | bash` — decoder is downstream of echo.
+        r'echo\s+["\']?[A-Za-z0-9+/=]{16,}["\']?\s*\|\s*(?:base64\s+(?:-d|--decode|-D)|xxd\s+-r|xxd\s+-ps\s+-r)\s*\|\s*(?:bash|sh|zsh)\b',
+        # Python one-liners that execute a base64/hex-decoded blob via os.system,
+        # subprocess.run, or exec(). Catches the "commands via Python
+        # subprocess" known-gap row for the decode-and-run subcase. Lookaheads
+        # match in either order — e.g. `os.system(base64.b64decode(...))` has
+        # the exec call before the decoder.
+        r'python3?\s+-c\s+["\'](?=.*(?:base64|codecs)\.[a-zA-Z_][a-zA-Z0-9_]*\()(?=.*(?:os\.system|subprocess\.[A-Za-z_]+|exec\s*)\()',
     ]
     for pat in patterns:
         for m in re.finditer(pat, text, re.IGNORECASE):
