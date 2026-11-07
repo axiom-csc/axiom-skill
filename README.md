@@ -99,8 +99,8 @@ echo '{"tool_name":"Write","tool_input":{"file_path":"src/auth/middleware.py","c
 | **Payments / numeric bounds** | Hardcoded limits that don't match your policy; literal math expressions like `MAX_TRANSACTION = 10000 * 8` are folded (→ 80000) | Limits stored in variables (`max = 10000; amount > max`) |
 | **Auth: hardcoded ID** | `user.id == 1` checks in auth paths (AST-based) | Aliased variables more than one hop deep |
 | **Auth: unconditional return** | `if True: return True` in auth paths | Complex conditional chains |
-| **Auth: role literals** | `"admin"`, `"root"` in non-config auth files | Config files exempt by design; non-English role names |
-| **Auth: commented checks** | `# check permission` in auth files | Non-English comments |
+| **Auth: role literals** | `"admin"`, `"root"` in non-config auth files (plus `"administrador"`, `"администратор"`, `"管理员"`, etc.; extend via `AXIOM_AUTH_ROLE_LITERALS` env) | Config files exempt by design |
+| **Auth: commented checks** | `# check permission` and localised equivalents (`# проверка прав`, `# verificar permiso`, `# 权限 验证`, etc.; extend via `AXIOM_AUTH_COMMENT_TERMS` env) | — |
 | **Dangerous Bash** | DROP TABLE, rm -rf (non-tmp), curl\|bash, writes to .axiom/, encoded payloads piped to a shell (`base64 -d \| bash`, `xxd -r \| sh`, `openssl base64 -d \| bash`, `python -c "... base64 ... os.system(...)"`) | Multi-line commands, heredocs, shelling out via spawned Python subprocess files |
 | **Secrets** | AWS keys, Stripe live/test keys, OpenAI keys, PEM blocks, hardcoded passwords | Secrets stored in variables before assignment; base64-encoded secrets |
 | **Dependency confusion** | Misspellings of requests, numpy, flask, django, express, react, lodash, axios | Packages not in the hardcoded known list |

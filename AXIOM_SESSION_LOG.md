@@ -451,3 +451,73 @@ Installed shellcheck locally to confirm the fix (brew install
 shellcheck → 0.11.0). After the fix: `shellcheck -x install.sh`
 exits 0 with no findings; full suite 97/97, zero skips, zero
 failures.
+
+### 2026-11-07 — report-writer handoff: cannot reproduce
+
+report-writer handoff claimed `tests/test_rule_keys.py::test_field_key_is_silently_dropped`
+failed on engine-repo's verification run with "AssertionError:
+'transaction_value' not found in ''" (empty stdout from
+`eval_lemma.py`). Report §3.4 already updated in axiom-core
+commit 9d730af to note this as a live regression.
+
+Investigation on this machine (HEAD e664170, Python 3.14.7):
+
+- Targeted test: 5 consecutive runs, all pass.
+- Full suite: 97/97, zero failures, zero skips.
+- Code-path analysis: eval_lemma.py cannot produce exit 1 with
+  stdout=''. Every exit-1 code path prints something — either
+  "[Lemma] ERROR: ast.json not found" (FileNotFoundError path)
+  or "❌ [Lemma BLOCK] ..." (violation path). stdout='' with
+  exit 1 is not a state eval_lemma.py reaches; the empty-stdout
+  path would be a subprocess-level failure (missing interpreter,
+  permission error) which would show up in stderr too.
+
+Not fabricating a fix. Possible explanations:
+
+1. **Stale checkout on engine-repo side.** The chain of commits
+   that touched this surface — `d37c8c1` (polish), `15d4290`
+   (first regression tests), `397be28` (action_on_fail wiring) —
+   went through intermediate states. If engine-repo was at a
+   checkout partway through this stack, a test might have been
+   present before its code dependency landed.
+2. **Handoff transcript error.** The reported assertion text
+   doesn't match a reachable code path in the committed code;
+   could be a copy from a different failing run, or from a
+   working-tree with local uncommitted changes.
+3. **Real environmental issue** that only shows on one machine.
+   Can't rule out but can't act on without a reproducer.
+
+Action: not committing a speculative fix. Flagging for team-lead
+to either (a) have engine-repo rerun on current HEAD after my
+e664170 lands pushed and confirm the state, or (b) share the
+full stderr + exact commit hash from the failing run so I can
+reproduce.
+
+Continuing item 31 (non-English role literals) in parallel.
+
+### 2026-11-07 — backlog item 31: non-English auth terms
+
+Closes two README Known-gaps rows (non-English role names,
+non-English comments).
+
+- `lower_ast.py` gains two module-level tuples:
+  - `_DEFAULT_ROLE_LITERALS` — English + Spanish + French + German
+    + Russian + Chinese + Japanese admin/root/superuser terms.
+  - `_DEFAULT_AUTH_COMMENT_TERMS` — the same languages for
+    auth/permission/role/check/authorise verbs.
+- Both are extensible at runtime via env vars
+  `AXIOM_AUTH_ROLE_LITERALS` and `AXIOM_AUTH_COMMENT_TERMS`
+  (comma-separated; `_env_extra()` helper), so a user with a
+  locale not in the default set can add terms without editing
+  code.
+- Patterns are now generated from the combined tuples by
+  `_role_literal_pattern()` and `_auth_comment_pattern()`, with
+  `re.escape()` on each term for safety even though the current
+  terms carry no metacharacters.
+- 13 new tests in `tests/test_auth_i18n.py`: English regression
+  for both concepts, four non-English positive cases per concept,
+  env-override add-a-term tests, config-file-still-exempt
+  regression, non-auth-path negative, benign-comment negative.
+- Full suite: **110/110** (shellcheck installed, no skips).
+- README Known-gaps table: both rows updated — "non-English role
+  names" and "Non-English comments" removed from the gaps column.

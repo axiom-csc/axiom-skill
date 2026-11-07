@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import ast as _ast
-import json, re, argparse, pathlib, sys
+import json, os, re, argparse, pathlib, sys
 
 # Shared secret pattern source — see _secret_patterns.py. Keeps the hook
 # detector and the CLI redactor from drifting.
@@ -27,6 +27,50 @@ PATTERNS = [
 
 AUTH_DIRS = {"auth", "middleware", "permissions", "roles"}
 DEP_FILES = {"requirements.txt", "package.json", "pyproject.toml", "go.mod"}
+
+# Role literals the hook treats as suspicious in non-config auth paths.
+# Extend via env `AXIOM_AUTH_ROLE_LITERALS` (comma-separated). Non-English
+# entries cover the most common localisations — these are quoted-string
+# literals, so "admin" and "администратор" both appear as `"admin"` or
+# `"администратор"` in the code being written.
+_DEFAULT_ROLE_LITERALS = (
+    "admin", "superuser", "root",
+    "administrador",                         # Spanish
+    "administrateur",                        # French
+    "administrator",                         # German, Dutch
+    "администратор", "админ",                # Russian (Cyrillic)
+    "管理员", "超级用户",                     # Chinese (simplified)
+    "管理者",                                 # Japanese
+)
+
+# Comment terms treated as suspicious-check markers in auth paths. Extend
+# via env `AXIOM_AUTH_COMMENT_TERMS` (comma-separated).
+_DEFAULT_AUTH_COMMENT_TERMS = (
+    "auth", "permission", "role", "check",
+    "autorización", "permiso", "rol",        # Spanish
+    "autorisation", "rôle",                  # French
+    "berechtigung", "rolle",                 # German
+    "авторизация", "проверка", "права", "роль",  # Russian
+    "授权", "权限", "角色", "验证",            # Chinese
+    "認証", "権限",                           # Japanese
+)
+
+
+def _env_extra(name):
+    raw = os.environ.get(name, "")
+    return tuple(t.strip() for t in raw.split(",") if t.strip())
+
+
+def _role_literal_pattern():
+    terms = _DEFAULT_ROLE_LITERALS + _env_extra("AXIOM_AUTH_ROLE_LITERALS")
+    escaped = "|".join(re.escape(t) for t in terms)
+    return rf'["\']({escaped})["\']'
+
+
+def _auth_comment_pattern():
+    terms = _DEFAULT_AUTH_COMMENT_TERMS + _env_extra("AXIOM_AUTH_COMMENT_TERMS")
+    escaped = "|".join(re.escape(t) for t in terms)
+    return rf'#[^\n]*(?:{escaped})[^\n]*'
 
 KNOWN_PACKAGES = {
     "requests", "numpy", "flask", "django", "express", "react", "lodash", "axios",
@@ -277,15 +321,17 @@ def extract_auth_patterns(text, file_path):
     # auth_hardcoded_id and auth_uncond_return: AST-based (catches obfuscated spacing + aliases)
     entities.extend(_ast_extract_auth_violations(text))
 
-    # Role string literals: "admin", "superuser", "root" in non-config .py files
+    # Role string literals in non-config .py files. Multi-language via
+    # _DEFAULT_ROLE_LITERALS + env override; see module-level constants.
     fname = pathlib.Path(file_path).name.lower()
     if fname.endswith('.py') and 'config' not in fname and 'setting' not in fname:
-        for m in re.finditer(r'["\'](?:admin|superuser|root)["\']', text, re.IGNORECASE):
+        for m in re.finditer(_role_literal_pattern(), text, re.IGNORECASE):
             entities.append({"id": f"auth_rol_{len(entities)}", "concept": "auth_role_literal",
                              "value": 1, "type": "auth_violation", "source": m.group(0).strip()})
 
-    # Commented-out auth checks: # line containing auth/permission/role/check
-    for m in re.finditer(r'#[^\n]*(?:auth|permission|role|check)[^\n]*', text, re.IGNORECASE):
+    # Commented-out auth checks. Multi-language via _DEFAULT_AUTH_COMMENT_TERMS
+    # + env override.
+    for m in re.finditer(_auth_comment_pattern(), text, re.IGNORECASE):
         entities.append({"id": f"auth_cmt_{len(entities)}", "concept": "auth_commented_check",
                          "value": 1, "type": "auth_violation", "source": m.group(0).strip()[:80]})
 
