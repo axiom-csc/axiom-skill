@@ -96,12 +96,12 @@ echo '{"tool_name":"Write","tool_input":{"file_path":"src/auth/middleware.py","c
 
 | Category | What Axiom catches | Known gaps |
 |----------|--------------------|------------|
-| **Payments / numeric bounds** | Hardcoded limits that don't match your policy | Limits stored in variables (`max = 10000; amount > max`); math expressions — `MAX_TRANSACTION = 10000 * 8` is read as `10000`, not `80000` |
+| **Payments / numeric bounds** | Hardcoded limits that don't match your policy; literal math expressions like `MAX_TRANSACTION = 10000 * 8` are folded (→ 80000) | Limits stored in variables (`max = 10000; amount > max`) |
 | **Auth: hardcoded ID** | `user.id == 1` checks in auth paths (AST-based) | Aliased variables more than one hop deep |
 | **Auth: unconditional return** | `if True: return True` in auth paths | Complex conditional chains |
 | **Auth: role literals** | `"admin"`, `"root"` in non-config auth files | Config files exempt by design; non-English role names |
 | **Auth: commented checks** | `# check permission` in auth files | Non-English comments |
-| **Dangerous Bash** | DROP TABLE, rm -rf (non-tmp), curl\|bash, writes to .axiom/ | Multi-line commands, heredocs, commands via Python subprocess; encoded payloads piped to bash (`base64 -d \| bash`, xxd, hex decode patterns) |
+| **Dangerous Bash** | DROP TABLE, rm -rf (non-tmp), curl\|bash, writes to .axiom/, encoded payloads piped to a shell (`base64 -d \| bash`, `xxd -r \| sh`, `openssl base64 -d \| bash`, `python -c "... base64 ... os.system(...)"`) | Multi-line commands, heredocs, shelling out via spawned Python subprocess files |
 | **Secrets** | AWS keys, Stripe live/test keys, OpenAI keys, PEM blocks, hardcoded passwords | Secrets stored in variables before assignment; base64-encoded secrets |
 | **Dependency confusion** | Misspellings of requests, numpy, flask, django, express, react, lodash, axios | Packages not in the hardcoded known list |
 | **Rate limits** | Invented req/min values | Values in separate config files |

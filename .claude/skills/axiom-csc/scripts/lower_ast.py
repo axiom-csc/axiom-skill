@@ -37,6 +37,94 @@ SECRET_PATTERNS = [
 ]
 
 
+_NUMERIC_CONCEPT_KEYWORDS = {
+    "transaction_value": ("max_transaction", "transaction_limit", "transaction_cap",
+                          "transaction_value", "transaction_amount",
+                          "max_payment", "max_charge", "max_amount"),
+    "rate_limit_rpm": ("rate_limit_rpm", "max_rpm"),
+    "file_size_mb": ("max_file_size_mb", "max_upload_mb", "max_size_mb"),
+    "query_row_limit": ("max_rows", "row_limit", "query_row_limit"),
+    "retry_count": ("max_retries", "retry_count"),
+    "timeout_seconds": ("timeout_seconds", "timeout_s"),
+}
+
+
+def _safe_eval_const_arith(node):
+    """Reduce an ast expression to a number if it's a literal arithmetic over
+    int/float constants. Returns None for anything else (names, calls,
+    attribute access, etc.). Prevents RHS-with-variable from being folded."""
+    if isinstance(node, _ast.Constant) and isinstance(node.value, (int, float)):
+        return node.value
+    if isinstance(node, _ast.UnaryOp) and isinstance(node.op, (_ast.UAdd, _ast.USub)):
+        inner = _safe_eval_const_arith(node.operand)
+        if inner is None:
+            return None
+        return +inner if isinstance(node.op, _ast.UAdd) else -inner
+    if isinstance(node, _ast.BinOp):
+        left = _safe_eval_const_arith(node.left)
+        right = _safe_eval_const_arith(node.right)
+        if left is None or right is None:
+            return None
+        try:
+            if isinstance(node.op, _ast.Add): return left + right
+            if isinstance(node.op, _ast.Sub): return left - right
+            if isinstance(node.op, _ast.Mult): return left * right
+            if isinstance(node.op, _ast.Div) and right != 0: return left / right
+            if isinstance(node.op, _ast.FloorDiv) and right != 0: return left // right
+            if isinstance(node.op, _ast.Pow) and abs(right) < 20: return left ** right
+        except Exception:
+            return None
+    return None
+
+
+def _extract_numeric_math_via_ast(text):
+    """Pick up numeric assignments whose RHS is an arithmetic expression over
+    literal constants, e.g. `MAX_TRANSACTION = 10000 * 8` → 80000.
+
+    Scoped to target names in `_NUMERIC_CONCEPT_KEYWORDS`, matched
+    case-insensitively against the identifier. Skips RHS values with Names,
+    Calls, or Attributes — anything not computable from the literal alone.
+    """
+    try:
+        tree = _ast.parse(text)
+    except SyntaxError:
+        return []
+
+    entities = []
+    # Walk Assign and AnnAssign nodes
+    for node in _ast.walk(tree):
+        targets, value = [], None
+        if isinstance(node, _ast.Assign):
+            targets, value = node.targets, node.value
+        elif isinstance(node, _ast.AnnAssign) and node.value is not None:
+            targets, value = [node.target], node.value
+        else:
+            continue
+        # Only flag computed RHS (BinOp or UnaryOp) — bare constants are
+        # already caught by the regex `assignment` pattern.
+        if not isinstance(value, (_ast.BinOp, _ast.UnaryOp)):
+            continue
+        folded = _safe_eval_const_arith(value)
+        if folded is None:
+            continue
+        for tgt in targets:
+            name = getattr(tgt, "id", None)
+            if not name:
+                continue
+            lname = name.lower()
+            for concept, keys in _NUMERIC_CONCEPT_KEYWORDS.items():
+                if any(k in lname for k in keys):
+                    entities.append({
+                        "id": f"ent_math_{concept}_{len(entities)}",
+                        "concept": concept,
+                        "value": float(folded),
+                        "type": "assignment_math",
+                        "source": f"{name} = <expr> → {folded}",
+                    })
+                    break
+    return entities
+
+
 def extract(text):
     entities, seen = [], set()
     for concept, pattern, type_label, cast in PATTERNS:
@@ -48,6 +136,11 @@ def extract(text):
             if key in seen: continue
             seen.add(key)
             entities.append({"id": f"ent_{concept}_{len(entities)}", "concept": concept, "value": val, "type": type_label, "source": m.group(0).strip()})
+    for ent in _extract_numeric_math_via_ast(text):
+        key = (ent["concept"], str(ent["value"]))
+        if key in seen: continue
+        seen.add(key)
+        entities.append(ent)
     return entities
 
 

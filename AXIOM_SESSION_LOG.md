@@ -238,3 +238,34 @@ follow if time permits):
 - Multi-line heredoc-wrapped dangerous commands (already partially
   covered since inline regexes match inside heredoc bodies; edge
   cases like variable-expanded heredocs would need more work).
+
+### 2026-11-07 — item 21 cont'd: math-expression RHS folding
+
+Closes the top-named gap in README's "What it catches" table:
+`MAX_TRANSACTION = 10000 * 8` now folds to 80000 end-to-end.
+
+- `lower_ast.py` gains `_safe_eval_const_arith` (reduces an AST node
+  to a number only if the entire subtree is literal constants under
+  `+`, `-`, `*`, `/`, `//`, `**`, unary `+/-`; returns None on any
+  Name/Call/Attribute) and `_extract_numeric_math_via_ast` (walks
+  Assign + AnnAssign nodes whose target identifier matches one of
+  six numeric concepts — transaction_value, rate_limit_rpm,
+  file_size_mb, query_row_limit, retry_count, timeout_seconds).
+- `extract()` merges the AST-derived entities with the regex pass
+  and dedupes on `(concept, value)` so a bare constant doesn't
+  double up.
+- Safeguards against overfiring verified by negative tests:
+  - RHS with a Name (`MAX = base * 8`) is not folded.
+  - RHS with a function call (`MAX = int(getenv('X'))`) is not
+    folded.
+  - Non-Python syntax (SQL blob) does not crash — SyntaxError is
+    swallowed in the AST pass.
+- New test file `tests/test_numeric_math.py` with 12 tests covering
+  multiplication, addition, subtraction, power, parentheses,
+  annotated assignments, unary negation, other concepts (retry_count),
+  no-duplicate on bare constants, variable/call negative cases,
+  non-Python robustness.
+- Full suite: 76/76.
+- README's Known-gaps table updated: the math-expression row moved
+  from "Known gaps" to "What Axiom catches"; dangerous-bash row
+  updated for the encoded-payload coverage from the previous commit.
