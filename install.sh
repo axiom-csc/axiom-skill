@@ -3,7 +3,10 @@ set -euo pipefail
 GREEN='\033[0;32m'; BLUE='\033[0;34m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
 
 AXIOM_VERSION="v1.2.2"
-REPO_BASE="https://raw.githubusercontent.com/axiom-csc/axiom-claude-skill/${AXIOM_VERSION}/.claude/skills/axiom-csc"
+# Default remote source. Can be overridden for smoke tests and offline installs
+# via AXIOM_REPO_BASE — e.g. `AXIOM_REPO_BASE=file:///path/to/skill install.sh`.
+# curl handles file:// natively, so the override works with no other changes.
+REPO_BASE="${AXIOM_REPO_BASE:-https://raw.githubusercontent.com/axiom-csc/axiom-claude-skill/${AXIOM_VERSION}/.claude/skills/axiom-csc}"
 
 # Download one file, fail loudly with a hint if the server 404s or the file
 # comes back empty. A silent curl failure or partial fetch leaves a broken

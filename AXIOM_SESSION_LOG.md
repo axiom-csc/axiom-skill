@@ -301,3 +301,47 @@ and the PEM-header-only shape).
 Full suite: 82/82.
 
 Next claim will go on item 22 or 23.
+
+### 2026-11-07 — backlog item 23: install.sh smoke test
+
+- `install.sh` gains one line: `REPO_BASE` now honors `AXIOM_REPO_BASE`
+  env override (default unchanged). Lets smoke tests run installs
+  against a `file://` source without the real network or a published
+  tag. Public users see no change.
+- New `tests/test_install_smoke.py` with 8 tests across two classes:
+  - Static (4): `bash -n` passes; `set -euo pipefail` present; every
+    `curl -fsSL "$REPO_BASE/..."` download goes through `fetch()` (no
+    regression to the pre-`0c93bf0` raw loop); shellcheck lint runs
+    only when the binary is on `$PATH` and ignores SC2155/SC2129.
+  - Rehearsal (4): run install.sh in a sandbox project dir with
+    `AXIOM_REPO_BASE=file://<local-skill-path>` and `HOME=<tmp>` so no
+    real user state is touched. Asserts the install exits 0, all 8
+    expected skill files land, `.claude/settings.json` gains the
+    PreToolUse hook, and `.axiom/invariants.yaml` is auto-generated.
+- shellcheck not installed on this machine — test was skipped rather
+  than fabricated (`OK (skipped=1)`). Will run under CI where
+  shellcheck is available.
+- Full suite: 90/90 (+ 1 skipped).
+
+### 2026-11-07 — team-lead queue additions acknowledged
+
+Capstone-adjacent tasks added to this lane by team-lead
+("teammate_id=team-lead" message):
+
+1. Axiom Sandbox CLI rebrand (new name, back-compat alias,
+   README/install/telemetry updates, CHANGELOG note).
+2. Blocked-event demo recording (real asciinema or committed txt
+   transcript; no fabricated output).
+3. Open-Science Telemetry design doc — flagged as positioning-writer's
+   responsibility; skip if they land it first.
+
+Flag noted for the audit trail: team-lead's message said operator
+had described the Sandbox rebrand as "already dispatched" but
+team-lead explicitly stated they had NOT previously dispatched it.
+Team-lead is dispatching now under their own authority. Proceeding
+with the task on the team-lead authorization, flagging the chain
+discrepancy here only.
+
+Queue ordering per team-lead: chain after items 30–33 (lower_ast
+split-offs) — not jumping to the rebrand mid-item-23. Will start
+items 30–33 or the rebrand in the next pane-tick.
