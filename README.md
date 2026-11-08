@@ -7,6 +7,8 @@
 
 Axiom is a local guardrail for AI coding agents. It runs as a pre-write hook in Claude Code and Cursor, and as a stdin/stdout filter for any agent that can pipe tool calls through a subprocess. Zero dependencies. No API keys. No tokens. Blocks before the write.
 
+[![M8ven Score](https://m8ven.ai/badge/mcp/axiom-csc-axiom-claude-skill-5qs6l4?v=fe87bd3203fb7efc545a95c4b466b13e)](https://m8ven.ai/mcp/axiom-csc-axiom-claude-skill-5qs6l4?s=readme)
+
 ![Axiom blocking a payment limit violation](demo.gif)
 
 > Detection is regex and AST-pattern based, not semantic. A motivated agent or attacker can bypass these checks with minor obfuscation. This tool catches the most common accidental violations, not adversarial ones. For adversarial resistance, pair it with container isolation and branch protection.
