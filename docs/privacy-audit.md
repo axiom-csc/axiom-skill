@@ -56,7 +56,7 @@ claim in `PRIVACY.md`, traced to code. Each claim is marked:
   `aws_secret_access_key=` assignments that the detector caught — would
   be caught by the two regression tests there.
 - **`$EDITOR` round-trip.** If the user edits the payload and introduces invalid JSON, `cmd_report` exits with "Could not read edited file" and does not fall back. Acceptable, just noting.
-- **Repo name reference.** PRIVACY.md says reports become issues "in the axiom-csc repository". The actual URL target is `github.com/axiom-csc/axiom-claude-skill/issues/new`. The org is `axiom-csc`; the repo is `axiom-claude-skill`. Mildly ambiguous; PRIVACY.md should name the repo, not the org.
+- **Repo name reference.** PRIVACY.md says reports become issues "in the axiom-csc repository". The actual URL target is `github.com/axiom-csc/axiom-skill/issues/new`. The org is `axiom-csc`; the repo is `axiom-claude-skill`. Mildly ambiguous; PRIVACY.md should name the repo, not the org.
 
 ## 5. Fix plan
 
@@ -68,6 +68,6 @@ more conservative than the doc:
 
 Also:
 
-- **4 (repo name)** — Clarify "axiom-csc/axiom-claude-skill" where the doc currently says "axiom-csc".
+- **4 (repo name)** — Clarify "axiom-csc/axiom-skill" where the doc currently says "axiom-csc".
 
 No code changes required. Fixes land in a follow-up commit after this audit lands.

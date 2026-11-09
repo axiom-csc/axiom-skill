@@ -11,9 +11,11 @@ Thank you for helping build a deterministic safety layer for autonomous AI agent
 ## Setup
 
 ```bash
-git clone https://github.com/axiom-csc/axiom-claude-skill
+git clone https://github.com/axiom-csc/axiom-skill
 cd axiom-claude-skill
-pip install pyyaml --break-system-packages
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e '.[dev]'
 ```
 
 ## Standards

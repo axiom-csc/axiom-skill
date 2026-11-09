@@ -361,13 +361,30 @@ def extract_dangerous_bash(text, tool_name):
     """Flag dangerous shell patterns in Bash tool calls."""
     if tool_name.lower() != "bash":
         return []
+    entities = []
+    # Force-push: a destructive git operation whose string arg IS parsed by git,
+    # not the shell, so the git short-circuit below would mask it. Check first.
+    if re.search(r'\bgit\s+push\b[^|&;]*?\s(?:--force(?:-with-lease)?\b|-f\b|\+\S)', text):
+        entities.append({"id": f"dbash_{len(entities)}", "concept": "dangerous_bash",
+                         "value": 1, "type": "force_push", "source": "git push --force"})
     # git subcommands don't execute their string arguments (e.g. -m "...") as shell
     if re.match(r'\s*git\s+', text):
-        return []
-    entities = []
+        return entities
     patterns = [
         r'(?:DROP\s+(?:TABLE|COLUMN|CONSTRAINT)|TRUNCATE\s+TABLE|ALTER\s+TABLE\s+\S+\s+DROP)',
         r'rm\s+-[^\s]*r[^\s]*\s+(?!/tmp|/var/tmp)\S+',
+        # Disk-level commands: operate on raw block devices or partition tables
+        # and can wipe a whole disk. The `\b.*/(?:dev|disk)` suffix limits
+        # false positives on values like `dd=1`.
+        r'\b(?:dd|mkfs(?:\.[a-z0-9]+)?|fdisk|parted|wipefs|sgdisk|shred)\b(?=[^|\n]*(?:/dev/|\sof=))',
+        # Shell redirects writing to auth/credential files anywhere on the
+        # system. Paired with extract_auth_file_write for Write/Edit tools.
+        r'(?:>|>>|tee\s+(?:-a\s+)?)\s*(?:/etc/(?:passwd|shadow|sudoers(?:\.d/\S+)?)|'
+        r'(?:[^\s]*/)?\.ssh/(?:authorized_keys|id_[a-z0-9]+|config)|'
+        r'(?:[^\s]*/)?\.aws/credentials|'
+        r'(?:[^\s]*/)?\.netrc|'
+        r'(?:[^\s]*/)?\.docker/config\.json|'
+        r'(?:[^\s]*/)?\.env(?:\.[a-z0-9_.-]+)?)',
         r'curl\s+[^\|\n]+\|\s*(?:bash|sh)\b',
         r'wget\s+[^\|\n]+\|\s*(?:bash|sh)\b',
         r'(?:>|>>|tee\s+)\.claude/settings\.json',
@@ -391,6 +408,33 @@ def extract_dangerous_bash(text, tool_name):
             entities.append({"id": f"dbash_{len(entities)}", "concept": "dangerous_bash",
                              "value": 1, "type": "dangerous_command", "source": m.group(0).strip()[:80]})
     return entities
+
+
+AUTH_FILE_PATTERNS = (
+    r'(?:^|/)\.ssh/(?:authorized_keys|id_[a-z0-9]+|config)$',
+    r'(?:^|/)\.aws/credentials$',
+    r'(?:^|/)\.netrc$',
+    r'(?:^|/)\.docker/config\.json$',
+    r'(?:^|/)\.env(?:\.[a-z0-9_.-]+)?$',
+    r'^/etc/(?:passwd|shadow|sudoers(?:\.d/.+)?)$',
+)
+
+
+def extract_auth_file_write(file_path, tool_name):
+    """Flag Write/Edit tools targeting auth/credential files.
+
+    extract_dangerous_bash covers shell-redirect writes; this handles direct
+    file-write tool calls that never pass through bash.
+    """
+    if tool_name.lower() not in ("write", "edit", "multiedit", "notebookedit"):
+        return []
+    if not file_path:
+        return []
+    for pat in AUTH_FILE_PATTERNS:
+        if re.search(pat, file_path, re.IGNORECASE):
+            return [{"id": "authw_0", "concept": "auth_file_write",
+                     "value": 1, "type": "auth_file", "source": file_path[:80]}]
+    return []
 
 
 def extract_secret_patterns(text, tool_name):
@@ -457,6 +501,7 @@ if __name__ == "__main__":
     nodes = extract(args.input)
     nodes += extract_auth_patterns(args.input, args.file_path)
     nodes += extract_dangerous_bash(args.input, args.tool_name)
+    nodes += extract_auth_file_write(args.file_path, args.tool_name)
     nodes += extract_secret_patterns(args.input, args.tool_name)
     nodes += extract_dep_confusion(args.input, args.file_path)
     pathlib.Path(args.out).write_text(json.dumps({"nodes": nodes}, indent=2))

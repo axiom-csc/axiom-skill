@@ -2,21 +2,31 @@
 set -euo pipefail
 GREEN='\033[0;32m'; BLUE='\033[0;34m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
 
-AXIOM_VERSION="v1.2.2"
-# Default remote source. Can be overridden for smoke tests and offline installs
-# via AXIOM_REPO_BASE — e.g. `AXIOM_REPO_BASE=file:///path/to/skill install.sh`.
-# curl handles file:// natively, so the override works with no other changes.
-REPO_BASE="${AXIOM_REPO_BASE:-https://raw.githubusercontent.com/axiom-csc/axiom-claude-skill/${AXIOM_VERSION}/.claude/skills/axiom-csc}"
+# Version and payload come from the same checkout. Clone the requested tag
+# first; never fetch a second release from a mutable default branch.
+INSTALL_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+AXIOM_VERSION="v$(python3 - "$INSTALL_ROOT/pyproject.toml" <<'VERSION'
+import re, sys
+from pathlib import Path
+text = Path(sys.argv[1]).read_text()
+match = re.search(r'^version = "([0-9]+\.[0-9]+\.[0-9]+)"$', text, re.M)
+if not match:
+    raise SystemExit("Missing project version")
+print(match.group(1))
+VERSION
+)"
+REPO_BASE="${AXIOM_REPO_BASE:-file://$INSTALL_ROOT/.claude/skills/axiom-csc}"
 
 # Download one file, fail loudly with a hint if the server 404s or the file
 # comes back empty. A silent curl failure or partial fetch leaves a broken
 # skill install, which is worse than no install.
 fetch() {
   local url="$1" dest="$2"
+  if [[ "$url" == file://* ]] && [[ "${url#file://}" -ef "$dest" ]]; then return 0; fi
   if ! curl -fsSL "$url" -o "$dest"; then
     echo -e "${RED}Error: failed to download ${url}.${NC}" >&2
     echo "  Check that tag ${AXIOM_VERSION} exists at" >&2
-    echo "  https://github.com/axiom-csc/axiom-claude-skill/releases" >&2
+    echo "  https://github.com/axiom-csc/axiom-skill/releases" >&2
     echo "  and that you have network access." >&2
     return 1
   fi
@@ -107,8 +117,11 @@ fi
 echo -e "${BLUE}==> Installing Axiom CSC ${AXIOM_VERSION}...${NC}"
 mkdir -p "$SKILL_DIR/scripts" "$SKILL_DIR/references" "$SKILL_DIR/hooks"
 
+fetch "file://$INSTALL_ROOT/pyproject.toml" "$SKILL_DIR/pyproject.toml"
+fetch "$REPO_BASE/scripts/version.py" "$SKILL_DIR/scripts/version.py"
 fetch "$REPO_BASE/SKILL.md"                      "$SKILL_DIR/SKILL.md"
 fetch "$REPO_BASE/hooks/pre_tool_use.py"         "$SKILL_DIR/hooks/pre_tool_use.py"
+fetch "$REPO_BASE/scripts/_secret_patterns.py" "$SKILL_DIR/scripts/_secret_patterns.py"
 fetch "$REPO_BASE/scripts/lower_ast.py"          "$SKILL_DIR/scripts/lower_ast.py"
 fetch "$REPO_BASE/scripts/eval_lemma.py"         "$SKILL_DIR/scripts/eval_lemma.py"
 fetch "$REPO_BASE/scripts/axiom_init.py"         "$SKILL_DIR/scripts/axiom_init.py"
@@ -138,8 +151,8 @@ PYEOF
 
 # ── Telemetry consent (TTY only, default No) ───────────────────────────────
 python3 - <<'PYEOF'
-import sys, json, pathlib, uuid
-cfg_dir = pathlib.Path.home() / ".config" / "axiom-csc"
+import sys, json, pathlib, uuid, os
+cfg_dir = pathlib.Path(os.environ["AXIOM_CONFIG_DIR"]) if os.environ.get("AXIOM_CONFIG_DIR") else pathlib.Path.home() / ".config" / "axiom-csc"
 cfg_file = cfg_dir / "config.json"
 try:
     cfg = json.loads(cfg_file.read_text()) if cfg_file.exists() else {}
@@ -256,7 +269,7 @@ if [[ -n "$INIT_NOTE" ]]; then
   echo ""
 fi
 echo "  Test it: ask Claude to set a payment limit above your ceiling."
-echo "  Docs:    https://github.com/axiom-csc/axiom-claude-skill"
+echo "  Docs:    https://github.com/axiom-csc/axiom-skill"
 echo ""
-echo "Found a bypass? Open an issue: https://github.com/axiom-csc/axiom-claude-skill/issues"
-echo "Built something with it? Drop a star: https://github.com/axiom-csc/axiom-claude-skill"
+echo "Found a bypass? Open an issue: https://github.com/axiom-csc/axiom-skill/issues"
+echo "Built something with it? Drop a star: https://github.com/axiom-csc/axiom-skill"

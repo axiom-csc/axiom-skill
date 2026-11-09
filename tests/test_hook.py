@@ -104,13 +104,14 @@ class HookTests(unittest.TestCase):
         self.assertEqual(out, {})
         self.assertIn("✓", stderr)
 
-    # 6. No invariants.yaml → ALLOW with setup hint
-    def test_no_invariants_allows_with_hint(self):
+    # Missing policy: built-in default policy is active. A harmless Edit
+    # passes; the stderr notice points at axiom_init for customization.
+    def test_no_invariants_uses_builtin_default_with_hint(self):
         empty_dir = tempfile.mkdtemp()
         code, out, stderr = run_hook("Edit", {"new_string": "anything"}, empty_dir)
         self.assertEqual(code, 0)
-        self.assertEqual(out, {})
-        self.assertIn("axiom_init", stderr, f"Expected setup hint in stderr, got: {stderr}")
+        self.assertIn("Built-in default policy", stderr)
+        self.assertIn("axiom_init", stderr)
 
     # 7. Non-intercepted tool passes through immediately
     def test_non_intercepted_tool_passthrough(self):

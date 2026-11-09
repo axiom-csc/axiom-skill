@@ -12,7 +12,7 @@ git init -q
 echo 'MAX_TRANSACTION = 10000' > checkout.py
 
 echo "==> Installing Axiom..."
-curl -fsSL https://raw.githubusercontent.com/axiom-csc/axiom-claude-skill/v1.2.2/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/axiom-csc/axiom-skill/v1.2.2/install.sh | bash
 
 echo ""
 echo "==> Seeding invariants (overwriting auto-generated)..."

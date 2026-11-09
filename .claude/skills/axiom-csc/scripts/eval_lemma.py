@@ -16,6 +16,7 @@ DEFAULT_RULES = {"rules": [
     {"concept": "auth_role_literal",    "banned": True, "action_on_fail": "BLOCK"},
     {"concept": "auth_commented_check", "banned": True, "action_on_fail": "BLOCK"},
     {"concept": "dangerous_bash",       "banned": True, "action_on_fail": "BLOCK"},
+    {"concept": "auth_file_write",      "banned": True, "action_on_fail": "BLOCK"},
     {"concept": "secret_pattern",       "banned": True, "action_on_fail": "BLOCK"},
     {"concept": "dep_confusion",        "banned": True, "action_on_fail": "BLOCK"},
 ]}
@@ -82,11 +83,7 @@ def load_rules(path):
     except json.JSONDecodeError:
         data = None
     if data is None:
-        try:
-            import yaml
-            data = yaml.safe_load(text)
-        except ImportError:
-            data = _parse_yaml_rules(text)
+        data = _parse_yaml_rules(text)
     return _merge_default_numeric(data)
 
 def _disposition(rule, key, default):
