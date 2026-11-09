@@ -330,9 +330,12 @@ def main():
         # everything else through. Print one line so first-run users see
         # which policy is active and how to customize it.
         print("[axiom-csc] Built-in default policy active (no "
-              ".axiom/invariants.yaml): blocks destructive shell commands "
-              "and writes to auth/credential files. To customize: python3 "
-              ".claude/skills/axiom-csc/scripts/axiom_init.py .",
+              ".axiom/invariants.yaml) — blocks destructive shell commands, "
+              "force-push, disk tools, and writes to credential files "
+              "(.env, ~/.ssh/, ~/.aws/credentials, /etc/passwd, ...). "
+              "To allow any blocked path, create .axiom/invariants.yaml — any "
+              "valid policy replaces the built-in default. Scaffold with: "
+              "python3 .claude/skills/axiom-csc/scripts/axiom_init.py .",
               file=sys.stderr)
     else:
         policy_error = validate_policy(rules_path)

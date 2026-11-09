@@ -70,6 +70,26 @@ class MissingPolicyFirstRunTests(unittest.TestCase):
             proc = _run('Bash', {'command': 'ls'}, tmp, stdin=True)
             self.assertIn('Built-in default policy', proc.stderr)
             self.assertIn('axiom_init.py', proc.stderr)
+            # Tells users how to allow a blocked path (e.g. .env writes).
+            self.assertIn('create .axiom/invariants.yaml', proc.stderr)
+            self.assertIn('any valid policy replaces the built-in default',
+                          proc.stderr)
+            self.assertIn('.env', proc.stderr)
+
+    def test_force_push_variants_are_blocked(self):
+        for cmd in (
+                'git push --force origin main',
+                'git push -f origin main',
+                'git push --force-with-lease origin main',
+                'git push origin +main',
+                'git push origin +refs/heads/feature:refs/heads/main',
+        ):
+            with tempfile.TemporaryDirectory() as tmp:
+                with self.subTest(cmd=cmd):
+                    proc = _run('Bash', {'command': cmd}, tmp, stdin=True)
+                    self.assertNotEqual(
+                        proc.returncode, 0,
+                        f'expected deny for {cmd!r}\nstderr={proc.stderr}')
 
 
 class BadPolicyStateDenyAllTests(unittest.TestCase):
