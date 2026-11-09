@@ -39,6 +39,16 @@ Axiom is a local guardrail for AI coding agents. It runs as a pre-write hook in 
   (Permit Tool Run)             (Fail-Closed Halt)
 ```
 
+The fail-closed path above applies within the rule pipeline **when a valid
+`.axiom/invariants.yaml` is active**. With no policy file, v1.2.3 applies a
+built-in default that blocks destructive shell commands, force-push, disk
+tools, and writes to credential files, and lets everything else through.
+With an empty, malformed or unreadable policy file, every intercepted
+operation is denied. Versions ≤1.2.2 allowed destructive operations when
+no policy file existed; see the [v1.2.3 release notes][release].
+
+[release]: https://github.com/axiom-csc/axiom-skill/releases/tag/v1.2.3
+
 ## Install
 
 Clone the desired release tag, then install from that checkout. Until the

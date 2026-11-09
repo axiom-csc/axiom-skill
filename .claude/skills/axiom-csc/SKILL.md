@@ -1,6 +1,6 @@
 ---
 name: axiom-csc
-version: 1.2.2
+version: 1.2.3
 description: Stop Claude from guessing your security, auth, and system constraints. Deterministic Tri-State guardrails for Claude Code across any domain.
 compatibility: claude-code
 ---
@@ -18,7 +18,7 @@ python3 .claude/skills/axiom-csc/scripts/axiom_init.py .
 
 ## Operational Modes
 
-- **STRICT** (default): Fail-closed on any UNKNOWN. Halt and ask. Never proceed.
+- **STRICT** (default): Fail-closed on any UNKNOWN. Halt and ask. Never proceed. (Governs pipeline behavior under a valid policy; see README for missing/broken-policy behavior.)
 - **AUDIT**: Include `[AXIOM: AUDIT]` anywhere in the tool call (e.g. in the
   `description`, `new_string`, or `content` field). The hook still runs the
   full pipeline and captures the would-be disposition (`allow` / `ask` /

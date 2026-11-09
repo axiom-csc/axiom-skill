@@ -16,9 +16,15 @@ Every Base Entity evaluation resolves to exactly one state:
 - `transaction_value` must satisfy `lte 10000` (configurable via `.axiom/invariants.yaml`)
 - Applies to: invoice totals, payment amounts, transfer values
 
-### Fail-Closed Guarantee
+### Fail-Closed Guarantee (within the rule pipeline)
 In STRICT mode, any UNKNOWN state halts execution immediately.
 Claude must issue a single targeted micro-query naming the exact missing variable.
+This guarantee applies once a valid `.axiom/invariants.yaml` is loaded. See the
+[README][readme] and [v1.2.3 release notes][release] for what happens when no
+policy file exists, or when it is empty, malformed or unreadable.
+
+[readme]: ../../../../README.md
+[release]: https://github.com/axiom-csc/axiom-skill/releases/tag/v1.2.3
 
 ## Configuring Custom Rules
 

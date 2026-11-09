@@ -6,7 +6,7 @@ Thank you for helping build a deterministic safety layer for autonomous AI agent
 
 - **Noema** — AST lowering & entity extraction. Must use scope-aware parsing, never naive regex. `const MAX_RETRIES = 3` must NOT trigger a boundary event.
 - **Lemma** — Relational logic solver. Optimized for <0.09ms execution. Any change that pushes cumulative `PreToolUse` runtime above 1.5ms fails CI.
-- **Manam** — Tri-state epistemic controller (`TRUE | FALSE | UNKNOWN`). UNKNOWN is not an error — it is a missing-value signal that triggers fail-closed.
+- **Manam** — Tri-state epistemic controller (`TRUE | FALSE | UNKNOWN`). UNKNOWN is not an error — it is a missing-value signal that triggers fail-closed within the rule pipeline when a valid `.axiom/invariants.yaml` is active. Missing-policy behavior is a separate concern handled in the hook entry point (v1.2.3: built-in default policy applied; empty/malformed/unreadable policy: deny-all).
 
 ## Setup
 
