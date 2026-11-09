@@ -19,7 +19,7 @@ from _secret_patterns import REDACTOR_PATTERNS
 CONFIG_DIR = pathlib.Path.home() / ".config" / "axiom-csc"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 QUEUE_FILE = CONFIG_DIR / "queue.jsonl"
-REPO_ISSUES = "https://github.com/axiom-csc/axiom-claude-skill/issues/new"
+REPO_ISSUES = "https://github.com/axiom-csc/axiom-skill/issues/new"
 MAX_URL_LEN = 2000
 
 # ── Config helpers ─────────────────────────────────────────────────────────
@@ -167,7 +167,7 @@ def cmd_report(args):
     redacted_entry = json.loads(redact_secrets(json.dumps(entry)))
 
     payload = {
-        "axiom_version": "1.2.2",
+        "axiom_version": __import__("version").project_version(),
         "report_type": kind,
         "note": note,
         "decision": redacted_entry.get("decision"),

@@ -4,3 +4,6 @@ __pycache__/
 .axiom/state.json
 .axiom/audit.log
 .axiom/local_log.jsonl
+
+.venv/
+*.egg-info/

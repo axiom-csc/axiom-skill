@@ -15,7 +15,7 @@ Edits (6 files):
 - `CONTRIBUTING.md` — "Python 3.10+" → "Python 3.8+" (matches installer and COMPATIBILITY.md); fixed three Extension-section paths to `.claude/skills/axiom-csc/scripts/...`.
 
 Infra:
-- Remote repointed: `origin` was `github.com/axiom-csc/axiom-skill.git` → now `github.com/axiom-csc/axiom-claude-skill.git` (canonical, confirmed by operator).
+- Remote repointed: `origin` was `github.com/axiom-csc/axiom-skill.git` → now `github.com/axiom-csc/axiom-skill.git` (canonical, confirmed by operator).
 
 Status:
 - Commit `d0ca781` on local `main`.
@@ -183,7 +183,7 @@ convention since no prior audits existed).
      opens a prefilled GitHub `/issues/new` URL via `webbrowser.open`;
      the user must still click Submit. Doc overstates automation.
 - 1 minor: PRIVACY.md says reports go to "the axiom-csc repository";
-  the actual target is `axiom-csc/axiom-claude-skill`.
+  the actual target is `axiom-csc/axiom-skill`.
 
 Follow-up PRIVACY.md wording fixes committed next.
 
@@ -201,7 +201,7 @@ already more conservative than the doc; both edits are doc-only.
   >2KB fallback (`axiom_case_report.json` written to CWD) which the
   doc had omitted.
 - Minor: the issue-target URL now names org + repo
-  (`axiom-csc/axiom-claude-skill`) instead of just the org.
+  (`axiom-csc/axiom-skill`) instead of just the org.
 
 Not fixed: `axiom.py:SECRET_PATTERNS` only covers `sk_live_` keys
 while the hook-side pattern in `lower_ast.py` covers both live and

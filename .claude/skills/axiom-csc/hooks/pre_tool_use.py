@@ -14,7 +14,9 @@ import sys
 import time
 from pathlib import Path
 
-SKILL_VERSION = "1.2.2"
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+from version import project_version
+SKILL_VERSION = project_version()
 
 # Versions of Claude Code this hook has been tested against (major version numbers).
 # If CLAUDE_CODE_VERSION is set and outside this range a warning is printed to stderr.
@@ -32,7 +34,7 @@ def _check_version_compat() -> None:
             print(
                 f"[axiom-csc] ⚠️ Untested Claude Code version {ver} — "
                 "hook may behave unexpectedly. "
-                "Check github.com/axiom-csc/axiom-claude-skill for updates.",
+                "Check github.com/axiom-csc/axiom-skill for updates.",
                 file=sys.stderr,
             )
     except (ValueError, IndexError):
@@ -68,7 +70,7 @@ LOCAL_LOG = AXIOM_DIR / "local_log.jsonl"
 LOCAL_LOG_MAX = 50
 SCRIPTS_DIR = Path(__file__).parent.parent / "scripts"
 
-CONFIG_DIR = Path.home() / ".config" / "axiom-csc"
+CONFIG_DIR = Path(os.environ["AXIOM_CONFIG_DIR"]) if os.environ.get("AXIOM_CONFIG_DIR") else Path.home() / ".config" / "axiom-csc"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 QUEUE_FILE = CONFIG_DIR / "queue.jsonl"
 QUEUE_MAX = 1000
@@ -243,6 +245,68 @@ def run_pipeline(context, rules_path, tool_name="", file_path=""):
     return r2.returncode, r2.stdout + r2.stderr
 
 
+def validate_rules(rules):
+    import math
+    allowed = {"concept", "op", "value", "banned", "required",
+               "action_on_fail", "action_on_missing"}
+    if not isinstance(rules, list) or not rules:
+        return "Policy needs a nonempty rules list"
+    for rule in rules:
+        if (not isinstance(rule, dict) or set(rule) - allowed or
+                not isinstance(rule.get("concept"), str) or not rule["concept"]):
+            return "Invalid rule fields"
+        if "op" in rule:
+            value = rule.get("value")
+            if (rule["op"] not in ("lte", "gte", "lt", "gt", "eq") or
+                    type(value) not in (int, float) or not math.isfinite(value)):
+                return "Invalid numeric rule"
+        elif not any(rule.get(key) is True for key in ("banned", "required")):
+            return "Rule needs a constraint"
+        for key in ("banned", "required"):
+            if key in rule and type(rule[key]) is not bool:
+                return "Invalid boolean constraint"
+        for key in ("action_on_fail", "action_on_missing"):
+            if key in rule and rule[key] not in ("BLOCK", "ASK"):
+                return "Invalid action"
+    return None
+
+
+def validate_policy(path):
+    """Accept the documented flat YAML subset or JSON; reject ambiguity.
+
+    No optional parser can change this check. Unsupported YAML constructs must
+    be rewritten using the generated flat format before operations can run.
+    """
+    import re
+    try:
+        if path.stat().st_mode & 0o444 == 0:
+            return "Policy is unreadable"
+        text = path.read_text()
+        if not text.strip():
+            return "Policy is empty"
+        if text.lstrip().startswith("{"):
+            data = json.loads(text)
+            return validate_rules(data["rules"])
+        lines = [x.split("#", 1)[0].rstrip() for x in text.splitlines()]
+        lines = [x for x in lines if x.strip()]
+        if not lines or lines[0] != "rules:":
+            return "Policy must start with rules:"
+        concepts = 0
+        for line in lines[1:]:
+            if re.fullmatch(r"  - concept: [A-Za-z_][A-Za-z_0-9]*", line):
+                concepts += 1
+            elif not concepts or not re.fullmatch(
+                r"    (op: (lte|gte|lt|gt|eq)|value: -?[0-9]+(\.[0-9]+)?|"
+                r"(banned|required): (true|false)|action_on_(fail|missing): (BLOCK|ASK))", line):
+                return "Invalid or unsupported policy syntax"
+        if not concepts:
+            return "Policy has no rules"
+        from eval_lemma import _parse_yaml_rules
+        return validate_rules(_parse_yaml_rules(text)["rules"])
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        return "Policy missing, unreadable or invalid (" + type(exc).__name__ + ")"
+
+
 # ── Entry point ────────────────────────────────────────────────────────────
 
 def main():
@@ -251,7 +315,8 @@ def main():
     try:
         payload = json.load(sys.stdin)
     except Exception:
-        sys.exit(0)
+        print("[axiom-csc] Invalid hook input", file=sys.stderr)
+        sys.exit(2)
 
     tool_name = payload.get("tool_name", "")
     if tool_name not in INTERCEPTED_TOOLS:
@@ -259,12 +324,37 @@ def main():
 
     rules_path = AXIOM_DIR / "invariants.yaml"
     if not rules_path.exists():
-        print(
-            "[axiom-csc] No .axiom/invariants.yaml found — no rules to enforce. "
-            "Run: python3 .claude/skills/axiom-csc/scripts/axiom_init.py . to generate one.",
-            file=sys.stderr,
-        )
-        sys.exit(0)
+        # Missing policy: fall through to the pipeline, which loads
+        # eval_lemma.DEFAULT_RULES. That default blocks dangerous_bash,
+        # auth_file_write, secret_pattern and auth_hardcoded_id, and lets
+        # everything else through. Print one line so first-run users see
+        # which policy is active and how to customize it.
+        print("[axiom-csc] Built-in default policy active (no "
+              ".axiom/invariants.yaml) — blocks destructive shell commands, "
+              "force-push, disk tools, and writes to credential files "
+              "(.env, ~/.ssh/, ~/.aws/credentials, /etc/passwd, ...). "
+              "To allow any blocked path, create .axiom/invariants.yaml — any "
+              "valid policy replaces the built-in default. Scaffold with: "
+              "python3 .claude/skills/axiom-csc/scripts/axiom_init.py .",
+              file=sys.stderr)
+    else:
+        policy_error = validate_policy(rules_path)
+        if policy_error:
+            # Empty, malformed, unreadable or invalid policy denies every
+            # intercepted operation. A present-but-broken policy is a strong
+            # signal the user meant to configure the hook; refuse to guess.
+            reason = ("[axiom-csc] Built-in default policy: DENY. " + policy_error +
+                      ". Create a policy with: python3 "
+                      ".claude/skills/axiom-csc/scripts/axiom_init.py . "
+                      "then review .axiom/invariants.yaml before retrying.")
+            if STDIN_MODE:
+                print(reason, file=sys.stderr)
+                sys.exit(1)
+            print(json.dumps({"hookSpecificOutput": {
+                "hookEventName": "PreToolUse", "permissionDecision": "deny",
+                "permissionDecisionReason": reason}}))
+            print(reason, file=sys.stderr)
+            sys.exit(2)
 
     tool_input = payload.get("tool_input", {})
     context = get_context(tool_input)
@@ -341,4 +431,4 @@ if __name__ == "__main__":
         main()
     except Exception as e:
         print(f"[axiom-csc] hook error: {type(e).__name__}: {e}", file=sys.stderr)
-        sys.exit(0)
+        sys.exit(2)

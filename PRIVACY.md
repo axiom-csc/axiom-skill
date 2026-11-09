@@ -67,7 +67,7 @@ When you run `axiom report`:
 4. The full redacted payload is printed for your review.
 5. You must type `yes` to confirm submission.
 6. Axiom opens a prefilled **public GitHub issue** page in your browser at
-   `github.com/axiom-csc/axiom-claude-skill/issues/new`, with the title, body,
+   `github.com/axiom-csc/axiom-skill/issues/new`, with the title, body,
    and `case-report` label already set. **You** click Submit on GitHub after
    reviewing the prefilled form — nothing is posted automatically. If the
    payload is too large for a URL (over 2 KB), it is written to

@@ -41,24 +41,33 @@ Axiom is a local guardrail for AI coding agents. It runs as a pre-write hook in 
 
 ## Install
 
-```bash
-# Project-level (recommended)
-curl -fsSL https://raw.githubusercontent.com/axiom-csc/axiom-claude-skill/v1.2.2/install.sh | bash
-
-# Global — all projects on this machine
-curl -fsSL https://raw.githubusercontent.com/axiom-csc/axiom-claude-skill/v1.2.2/install.sh | bash -s -- --global
-```
-
-That's it. The installer downloads the hook, registers it in `.claude/settings.json`, and generates `.axiom/invariants.yaml` from your codebase — all in one step. Axiom runs automatically in every Claude Code and Cursor session from this point on.
-
-**Why `curl | bash` is safe here:** The installer is a bash script that downloads 6 Python files and registers a hook in `.claude/settings.json`. It makes no network calls after install, never runs as root, and writes only to your project directory (or `~/.claude/` with `--global`). Read it: https://github.com/axiom-csc/axiom-claude-skill/blob/v1.2.2/install.sh
-
-For additional agents:
+Clone the desired release tag, then install from that checkout. Until the
+patch is tagged, use the local review branch and the same commands below.
+The installer reads `project.version` from `pyproject.toml` and copies all
+payload files from that checkout; it never downloads a different version.
 
 ```bash
-curl -fsSL .../install.sh | bash -s -- --agents=cursor          # Claude Code + Cursor
-curl -fsSL .../install.sh | bash -s -- --agents=cursor,vscode   # + VS Code file-save task
+git clone https://github.com/axiom-csc/axiom-skill.git
+cd axiom-skill
+# For a published release: git checkout v<project.version>
+bash install.sh
 ```
+
+Contributor setup (Python 3.10+):
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e '.[dev]'
+python -m pytest -ra
+```
+
+Runtime dependencies: none. pytest and PyYAML are development-only.
+When policy is missing, empty, unreadable, or unsupported, the built-in
+emergency policy denies **all** intercepted tool operations (including reads
+through Bash). It blocks destructive commands and auth/credential writes by
+default. Generate and review `.axiom/invariants.yaml` to enable normal policy
+checks. This conservative fallback is not a semantic command sandbox.
 
 ## Uninstall
 
